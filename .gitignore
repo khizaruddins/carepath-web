@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.swc/
+.next/
+.env
+.env.local
+.next/cache/
