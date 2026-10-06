@@ -30,7 +30,7 @@ export function BottomNav() {
     { name: 'Health', href: '/app/profile', icon: HeartPulse },
     { name: 'Documents', href: '/app/documents', icon: FolderLock },
     { name: 'Timeline', href: '/app/timeline', icon: Clock },
-    { name: 'Care Team', href: '/app/care-team', icon: Stethoscope },
+    { name: 'Doctors', href: '/app/doctors', icon: Stethoscope },
   ];
 
   const doctorItems = [

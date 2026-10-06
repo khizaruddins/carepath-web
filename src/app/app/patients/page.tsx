@@ -33,12 +33,25 @@ import {
 export default function ConnectedPatientsPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [cohortTab, setCohortTab] = useState<'RELATIONSHIPS' | 'VAULT_ACCESS'>('VAULT_ACCESS');
   const [filterMode, setFilterMode] = useState<'ALL' | 'PENDING_REPORTS' | 'FOLLOW_UP_DUE'>('ALL');
   const [sortBy, setSortBy] = useState<'RECENT' | 'NAME' | 'FOLLOW_UP'>('RECENT');
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [consentModalOpen, setConsentModalOpen] = useState(false);
   const [targetPatient, setTargetPatient] = useState<{ id: string; name: string } | null>(null);
 
+  // M6 Connected Patients from Relationship Network
+  const {
+    data: networkPatients,
+    isLoading: isNetworkLoading,
+    refetch: refetchNetwork,
+  } = useQuery({
+    queryKey: ['doctor-connected-patients', search],
+    queryFn: () => doctorApi.getDoctorConnectedPatients(search || undefined),
+    enabled: !!user,
+  });
+
+  // M2 / M3 Authorized Patients with Active Consent
   const {
     data: patients,
     isLoading,
@@ -109,46 +122,292 @@ export default function ConnectedPatientsPage() {
         </div>
       </div>
 
-      {/* Search, Filter & Sort Controls */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <div className="flex-1 max-w-md">
-          <Input
-            placeholder="Search by patient name, email, or city..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            leftIcon={<Search className="h-4 w-4" />}
-          />
-        </div>
+      {/* Cohort Tabs: M6 Care Network Relationships vs M2/M3 Authorized Vault Access */}
+      <div className="flex border-b border-slate-200 gap-4">
+        <button
+          type="button"
+          onClick={() => setCohortTab('RELATIONSHIPS')}
+          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-colors ${
+            cohortTab === 'RELATIONSHIPS'
+              ? 'border-teal-700 text-teal-900'
+              : 'border-transparent text-slate-500 hover:text-slate-750'
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          Care Network Relationships
+          {networkPatients && (
+            <Badge variant={cohortTab === 'RELATIONSHIPS' ? 'brand' : 'neutral'} size="sm">
+              {networkPatients.length}
+            </Badge>
+          )}
+        </button>
 
-        <div className="flex items-center gap-2.5">
-          <Select
-            value={filterMode}
-            onChange={(e) => setFilterMode(e.target.value as any)}
-            options={[
-              { label: 'All Patients', value: 'ALL' },
-              { label: 'Reports Awaiting Review', value: 'PENDING_REPORTS' },
-              { label: 'Upcoming Follow-ups', value: 'FOLLOW_UP_DUE' },
-            ]}
-          />
-
-          <Select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            options={[
-              { label: 'Sort: Recently Connected', value: 'RECENT' },
-              { label: 'Sort: Patient Name', value: 'NAME' },
-              { label: 'Sort: Next Follow-up', value: 'FOLLOW_UP' },
-            ]}
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setCohortTab('VAULT_ACCESS')}
+          className={`pb-3 text-sm font-semibold border-b-2 flex items-center gap-2 transition-colors ${
+            cohortTab === 'VAULT_ACCESS'
+              ? 'border-teal-700 text-teal-900'
+              : 'border-transparent text-slate-500 hover:text-slate-750'
+          }`}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Authorized Vault Access
+          {patients && (
+            <Badge variant={cohortTab === 'VAULT_ACCESS' ? 'brand' : 'neutral'} size="sm">
+              {patients.length}
+            </Badge>
+          )}
+        </button>
       </div>
 
-      {/* Patient Data Display: Responsive Table on Desktop, Cards on Mobile */}
-      {isLoading ? (
-        <div className="py-16">
-          <LoadingSpinner message="Retrieving authorized patient cohorts..." />
+      {cohortTab === 'RELATIONSHIPS' ? (
+        /* M6 Care Network Relationships View */
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex-1 max-w-md">
+              <Input
+                placeholder="Search connected patients by name, email, or city..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                leftIcon={<Search className="h-4 w-4" />}
+              />
+            </div>
+          </div>
+
+          {isNetworkLoading ? (
+            <div className="py-16">
+              <LoadingSpinner message="Loading care network relationships..." />
+            </div>
+          ) : networkPatients && networkPatients.length > 0 ? (
+            <div className="space-y-4">
+              {/* Desktop Table View */}
+              <div className="hidden md:block rounded-lg border border-slate-200 bg-white overflow-hidden shadow-xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="py-3 px-4">Patient</th>
+                      <th className="py-3 px-4">Connected Since</th>
+                      <th className="py-3 px-4">Connection Source</th>
+                      <th className="py-3 px-4">Consultations</th>
+                      <th className="py-3 px-4">Record Consent Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {networkPatients.map((item) => (
+                      <tr key={item.relationshipId} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900">
+                            {item.patientName || item.email}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {item.email} • {item.city || 'India'}
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-slate-600">
+                          <span className="font-medium text-slate-800">{formatDate(item.connectedAt)}</span>
+                          <span className="text-[10px] text-slate-400 block">
+                            Last interaction: {formatDate(item.lastInteractionAt)}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <Badge variant={item.connectionSource === 'SEARCH' ? 'info' : 'neutral'} size="sm">
+                            {item.connectionSource === 'SEARCH' ? 'Doctor Discovery' : 'Email Invitation'}
+                          </Badge>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-slate-600">
+                          {item.consultationCount > 0 ? (
+                            <div>
+                              <span className="font-medium text-slate-800">
+                                {item.consultationCount} consultation{item.consultationCount !== 1 ? 's' : ''}
+                              </span>
+                              {item.lastConsultationAt && (
+                                <span className="text-[10px] text-slate-400 block">
+                                  Last: {formatDate(item.lastConsultationAt)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic">None recorded</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {item.hasGrantedAccess ? (
+                            <Badge variant="success" size="sm" dot>
+                              Active Vault Consent
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" size="sm">
+                              No Record Consent
+                            </Badge>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {!item.hasGrantedAccess && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setTargetPatient({
+                                    id: item.patientId,
+                                    name: item.patientName || item.email,
+                                  });
+                                  setConsentModalOpen(true);
+                                }}
+                                leftIcon={<KeyRound className="h-3 w-3 text-teal-700" />}
+                              >
+                                Request Records
+                              </Button>
+                            )}
+                            <Link href={`/app/patients/${item.patientId}`}>
+                              <Button size="sm" variant="secondary" rightIcon={<ArrowRight className="h-3 w-3" />}>
+                                Workspace
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {networkPatients.map((item) => (
+                  <Card key={item.relationshipId} className="hover:border-teal-700/30 transition-colors">
+                    <CardContent className="p-4 space-y-3 text-xs">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-sm">
+                            {item.patientName || item.email}
+                          </h3>
+                          <p className="text-[11px] text-slate-500">
+                            {item.email} • {item.city || 'India'}
+                          </p>
+                        </div>
+                        <Badge variant={item.hasGrantedAccess ? 'success' : 'neutral'} size="sm">
+                          {item.hasGrantedAccess ? 'Consent Active' : 'Connected'}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-1 py-2 border-y border-slate-100 text-slate-600">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Connected Since:</span>
+                          <span className="font-medium text-slate-800">{formatDate(item.connectedAt)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Source:</span>
+                          <span className="font-medium text-slate-800">
+                            {item.connectionSource === 'SEARCH' ? 'Discovery' : 'Invitation'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Consultations:</span>
+                          <span className="font-medium text-slate-800">{item.consultationCount}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 flex flex-col gap-2">
+                        {!item.hasGrantedAccess && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => {
+                              setTargetPatient({
+                                id: item.patientId,
+                                name: item.patientName || item.email,
+                              });
+                              setConsentModalOpen(true);
+                            }}
+                            leftIcon={<KeyRound className="h-3.5 w-3.5 text-teal-700" />}
+                          >
+                            Request Records Access
+                          </Button>
+                        )}
+                        <Link href={`/app/patients/${item.patientId}`} className="w-full">
+                          <Button size="sm" variant="primary" className="w-full">
+                            Open Patient Workspace
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="No network relationships found"
+              description={
+                search
+                  ? `No connected patients match "${search}". Try adjusting your search query.`
+                  : 'No patients are currently connected to your care network. Patients who discover your profile and connect, or whom you invite, will appear here.'
+              }
+              icon={<Users className="h-6 w-6 text-slate-400" />}
+              action={
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setRequestModalOpen(true)}
+                  leftIcon={<UserPlus className="h-3.5 w-3.5" />}
+                >
+                  Connect Patient by Email
+                </Button>
+              }
+            />
+          )}
         </div>
-      ) : sortedPatients.length > 0 ? (
+      ) : (
+        /* M2/M3 Authorized Vault Access View */
+        <div className="space-y-4">
+          {/* Search, Filter & Sort Controls */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            <div className="flex-1 max-w-md">
+              <Input
+                placeholder="Search by patient name, email, or city..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                leftIcon={<Search className="h-4 w-4" />}
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Select
+                value={filterMode}
+                onChange={(e) => setFilterMode(e.target.value as any)}
+                options={[
+                  { label: 'All Patients', value: 'ALL' },
+                  { label: 'Reports Awaiting Review', value: 'PENDING_REPORTS' },
+                  { label: 'Upcoming Follow-ups', value: 'FOLLOW_UP_DUE' },
+                ]}
+              />
+
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                options={[
+                  { label: 'Sort: Recently Connected', value: 'RECENT' },
+                  { label: 'Sort: Patient Name', value: 'NAME' },
+                  { label: 'Sort: Next Follow-up', value: 'FOLLOW_UP' },
+                ]}
+              />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="py-16">
+              <LoadingSpinner message="Retrieving authorized patient cohorts..." />
+            </div>
+          ) : sortedPatients.length > 0 ? (
         <div className="space-y-4">
           {/* Desktop Table View */}
           <div className="hidden md:block rounded-lg border border-slate-200 bg-white overflow-hidden shadow-xs">
@@ -335,6 +594,8 @@ export default function ConnectedPatientsPage() {
             </Button>
           }
         />
+      )}
+        </div>
       )}
 
       {/* 1. Connect Patient Modal (Email Invitation) */}

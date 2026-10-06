@@ -1,5 +1,20 @@
 import { api } from './client';
-import { HealthTimelineEvent, MedicalDocument, PatientProfile } from './types';
+import {
+  HealthTimelineEvent,
+  MedicalDocument,
+  PatientProfile,
+  DoctorSearchResponse,
+  DiscoverDoctorsParams,
+  DoctorPublicProfile,
+  PatientDoctorRelationship,
+  ConnectedDoctorItem,
+  RelationshipHistoryItem,
+  PreviouslyConsultedDoctorItem,
+  DoctorSearchHistoryItem,
+  DoctorConnectedPatientItem,
+  DoctorPracticeLocation,
+  RelationshipStatus,
+} from './types';
 
 export type DoctorVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
 export type FollowUpStatus = 'UPCOMING' | 'COMPLETED' | 'MISSED' | 'CANCELLED';
@@ -515,4 +530,74 @@ export const doctorApi = {
       notes,
       reason,
     }),
+
+  // -------------------------------------------------------------
+  // Milestone M6: Doctor Discovery & Relationship Network
+  // -------------------------------------------------------------
+
+  searchDoctors: (params?: DiscoverDoctorsParams) => {
+    const query = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== '') {
+          query.append(key, String(val));
+        }
+      });
+    }
+    const qStr = query.toString();
+    return api.get<DoctorSearchResponse>(`/doctors${qStr ? `?${qStr}` : ''}`);
+  },
+
+  getDoctorPublicProfile: (doctorId: string) =>
+    api.get<DoctorPublicProfile>(`/doctors/${doctorId}`),
+
+  connectDoctor: (doctorId: string, payload?: { source?: string; notes?: string }) =>
+    api.post<PatientDoctorRelationship>(`/doctors/${doctorId}/connect`, payload || {}),
+
+  reconnectDoctor: (doctorId: string) =>
+    api.post<PatientDoctorRelationship>(`/doctors/${doctorId}/reconnect`, {}),
+
+  disconnectDoctor: (doctorId: string, payload?: { reason?: string }) =>
+    api.post<PatientDoctorRelationship>(`/doctors/${doctorId}/disconnect`, payload || {}),
+
+  blockDoctor: (doctorId: string, payload?: { reason?: string }) =>
+    api.post<PatientDoctorRelationship>(`/doctors/${doctorId}/block`, payload || {}),
+
+  unblockDoctor: (doctorId: string) =>
+    api.post<PatientDoctorRelationship>(`/doctors/${doctorId}/unblock`, {}),
+
+  getPatientDoctors: (status?: RelationshipStatus) =>
+    api.get<ConnectedDoctorItem[]>(`/patients/me/doctors${status ? `?status=${status}` : ''}`),
+
+  getPatientRelationshipHistory: () =>
+    api.get<RelationshipHistoryItem[]>('/patients/me/doctors/history'),
+
+  getPreviouslyConsultedDoctors: () =>
+    api.get<PreviouslyConsultedDoctorItem[]>('/patients/me/doctors/previously-consulted'),
+
+  getPatientSearchHistory: () =>
+    api.get<DoctorSearchHistoryItem[]>('/patients/me/doctor-search-history'),
+
+  deleteSearchHistoryItem: (id: string) =>
+    api.delete<{ message: string }>(`/patients/me/doctor-search-history/${id}`),
+
+  clearAllSearchHistory: () =>
+    api.delete<{ message: string }>('/patients/me/doctor-search-history'),
+
+  getDoctorConnectedPatients: (search?: string) =>
+    api.get<DoctorConnectedPatientItem[]>(
+      `/doctors/me/patients${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    ),
+
+  getDoctorPracticeLocations: () =>
+    api.get<DoctorPracticeLocation[]>('/doctor/locations'),
+
+  createDoctorPracticeLocation: (payload: any) =>
+    api.post<DoctorPracticeLocation>('/doctor/locations', payload),
+
+  updateDoctorPracticeLocation: (locationId: string, payload: any) =>
+    api.patch<DoctorPracticeLocation>(`/doctor/locations/${locationId}`, payload),
+
+  deleteDoctorPracticeLocation: (locationId: string) =>
+    api.delete<{ message: string }>(`/doctor/locations/${locationId}`),
 };

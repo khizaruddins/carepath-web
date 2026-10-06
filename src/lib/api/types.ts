@@ -911,5 +911,243 @@ export interface ShareReportWithDoctorPayload {
   expiresInDays?: number;
 }
 
+// -------------------------------------------------------------
+// Milestone M6: Doctor Discovery & Relationship Network Types
+// -------------------------------------------------------------
+
+export type RelationshipStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+
+export type RelationshipEventType =
+  | 'CONNECTED'
+  | 'DISCONNECTED'
+  | 'RECONNECTED'
+  | 'BLOCKED'
+  | 'UNBLOCKED';
+
+export type ConnectionSource =
+  | 'SEARCH'
+  | 'DOCTOR_INVITE'
+  | 'CONSULTATION'
+  | 'REFERRAL'
+  | 'LAB_FOLLOW_UP'
+  | 'OTHER';
+
+export interface DoctorPracticeLocation {
+  id: string;
+  practiceName: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  area?: string | null;
+  city: string;
+  state?: string | null;
+  pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  phone?: string | null;
+  isPrimary?: boolean;
+}
+
+export interface DiscoveredDoctorItem {
+  id: string;
+  fullName: string;
+  profilePhoto?: string | null;
+  specialization?: string | null;
+  subSpecialty?: string | null;
+  qualifications?: string | null;
+  languages: string[];
+  yearsOfExperience: number;
+  clinicName?: string | null;
+  clinicAddress?: string | null;
+  city?: string | null;
+  consultationMode?: string | null;
+  consultationFee?: string | null;
+  workingHours?: string | null;
+  hospitalAffiliation?: string | null;
+  bio?: string | null;
+  practiceLocations: DoctorPracticeLocation[];
+  distanceKm?: number | null;
+  relationshipStatus?: RelationshipStatus | null;
+  isPreviouslyConsulted: boolean;
+  tier?: number;
+}
+
+export interface DiscoverDoctorsParams {
+  q?: string;
+  specialty?: string;
+  subspecialty?: string;
+  city?: string;
+  area?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+  gender?: string;
+  language?: string;
+  experienceMin?: number;
+  experienceMax?: number;
+  sort?: 'relevance' | 'experience_desc' | 'fee_asc' | 'fee_desc' | 'distance';
+  page?: number;
+  limit?: number;
+}
+
+export interface DoctorSearchResponse {
+  doctors: DiscoveredDoctorItem[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+export interface DoctorPublicProfile {
+  id: string;
+  fullName: string;
+  profilePhoto?: string | null;
+  gender?: string | null;
+  specialization?: string | null;
+  subSpecialty?: string | null;
+  qualifications?: string | null;
+  education?: string | null;
+  languages: string[];
+  yearsOfExperience: number;
+  clinicName?: string | null;
+  clinicAddress?: string | null;
+  city?: string | null;
+  consultationMode?: string | null;
+  consultationFee?: string | null;
+  workingHours?: string | null;
+  hospitalAffiliation?: string | null;
+  bio?: string | null;
+  practiceLocations: DoctorPracticeLocation[];
+  relationship: {
+    status: RelationshipStatus | null;
+    relationshipId?: string | null;
+    consultationCount: number;
+    lastConsultationAt?: string | null;
+  };
+}
+
+export interface PatientDoctorRelationship {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  status: RelationshipStatus;
+  connectedAt: string;
+  disconnectedAt?: string | null;
+  blockedAt?: string | null;
+  lastInteractionAt: string;
+  lastConsultationAt?: string | null;
+  consultationCount: number;
+  connectionSource: ConnectionSource;
+  notes?: string | null;
+  message?: string;
+}
+
+export interface ConnectedDoctorItem {
+  id: string;
+  doctorId: string;
+  status: RelationshipStatus;
+  connectedAt: string;
+  disconnectedAt?: string | null;
+  lastInteractionAt: string;
+  connectionSource: ConnectionSource;
+  notes?: string | null;
+  consultationCount: number;
+  lastConsultationAt?: string | null;
+  doctor: {
+    id: string;
+    fullName: string;
+    profilePhoto?: string | null;
+    specialization?: string | null;
+    subSpecialty?: string | null;
+    qualifications?: string | null;
+    languages: string[];
+    yearsOfExperience: number;
+    clinicName?: string | null;
+    clinicAddress?: string | null;
+    city?: string | null;
+    consultationMode?: string | null;
+    consultationFee?: string | null;
+    workingHours?: string | null;
+    hospitalAffiliation?: string | null;
+    practiceLocations: DoctorPracticeLocation[];
+  };
+}
+
+export interface RelationshipHistoryEvent {
+  id: string;
+  eventType: RelationshipEventType;
+  actorId: string;
+  reason?: string | null;
+  metadata?: any;
+  createdAt: string;
+}
+
+export interface RelationshipHistoryItem {
+  relationshipId: string;
+  doctorId: string;
+  doctorName: string;
+  specialization?: string | null;
+  status: RelationshipStatus;
+  connectedAt: string;
+  disconnectedAt?: string | null;
+  lastInteractionAt: string;
+  connectionSource: ConnectionSource;
+  notes?: string | null;
+  events: RelationshipHistoryEvent[];
+}
+
+export interface PreviouslyConsultedDoctorItem {
+  doctorId: string;
+  doctorName: string;
+  profilePhoto?: string | null;
+  specialization?: string | null;
+  subSpecialty?: string | null;
+  qualifications?: string | null;
+  city?: string | null;
+  clinicName?: string | null;
+  consultationCount: number;
+  firstConsultationAt: string;
+  lastConsultationAt: string;
+  relationshipStatus: RelationshipStatus | null;
+  isConnected: boolean;
+}
+
+export interface DoctorSearchHistoryItem {
+  id: string;
+  patientId: string;
+  doctorId?: string | null;
+  searchQuery?: string | null;
+  searchedAt: string;
+  doctor?: {
+    id: string;
+    doctorProfile?: {
+      fullName: string;
+      specialization?: string | null;
+      profilePhoto?: string | null;
+    } | null;
+  } | null;
+}
+
+export interface DoctorConnectedPatientItem {
+  relationshipId: string;
+  patientId: string;
+  patientName: string;
+  email: string;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  city?: string | null;
+  bloodGroup?: string | null;
+  connectedAt: string;
+  lastInteractionAt: string;
+  connectionSource: ConnectionSource;
+  notes?: string | null;
+  hasGrantedAccess: boolean;
+  consultationCount: number;
+  lastConsultationAt?: string | null;
+}
+
 
 

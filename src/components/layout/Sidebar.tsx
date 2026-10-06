@@ -50,8 +50,8 @@ export function Sidebar() {
       icon: Clock,
     },
     {
-      name: 'Care Team & Doctors',
-      href: '/app/care-team',
+      name: 'Doctors',
+      href: '/app/doctors',
       icon: Stethoscope,
     },
     {
